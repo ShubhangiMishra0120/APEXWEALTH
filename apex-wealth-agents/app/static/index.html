@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Advisor</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#0b1020; color:#e8ecf1; }
+    header { padding: 14px 16px; background:#0e1428; border-bottom:1px solid #1d2747; position: sticky; top: 0; }
+    header h1 { margin: 0; font-size: 16px; letter-spacing: 0.3px; }
+    .container { display: grid; grid-template-rows: 1fr auto; height: 100vh; }
+    #chat { padding: 16px; overflow-y: auto; }
+    .msg { max-width: 820px; margin: 8px auto; padding: 12px 14px; border-radius: 10px; line-height: 1.35; white-space: pre-wrap; }
+    .user { background: #1a2448; border:1px solid #2a3a73; }
+    .bot { background: #101833; border:1px solid #23305d; }
+    form { display: flex; gap: 8px; padding: 12px; border-top:1px solid #1d2747; background:#0c1326; }
+    input, button, textarea { font-size: 14px; }
+    textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 200px; padding: 10px 12px; background:#0b1020; color:#e8ecf1; border:1px solid #243159; border-radius: 10px; }
+    button { padding: 10px 14px; border-radius: 10px; border:1px solid #2a3a73; background:#19254b; color:#e8ecf1; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .meta { max-width: 820px; margin: 0 auto 8px; color:#8ea2c8; font-size: 12px; }
+    .pill { display:inline-block; background:#13214a; color:#b8c7ea; padding:2px 8px; border-radius:999px; border:1px solid #29407f; margin-right:6px; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    .header-actions { display: flex; gap: 8px; }
+    .header-btn { padding: 6px 12px; font-size: 12px; border-radius: 6px; border:1px solid #2a3a73; background:#19254b; color:#e8ecf1; cursor: pointer; }
+    .header-btn:hover { background:#1f2f5a; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; }
+    .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background:#0e1428; border:1px solid #1d2747; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h2 { margin: 0; font-size: 18px; }
+    .close-btn { background: none; border: none; color:#e8ecf1; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color:#8ea2c8; font-size: 13px; }
+    .form-group input, .form-group select { width: 100%; padding: 8px 12px; background:#0b1020; color:#e8ecf1; border:1px solid #243159; border-radius: 6px; font-size: 14px; }
+    .form-group input[type="file"] { padding: 6px; }
+    .form-group input[type="checkbox"] { width: auto; margin-right: 8px; }
+    .checkbox-group { display: flex; align-items: center; }
+    .status-message { padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+    .status-success { background:#1a3a2a; border:1px solid #2a5a3a; color:#8fec8f; }
+    .status-error { background:#3a1a1a; border:1px solid #5a2a2a; color:#ec8f8f; }
+    .status-info { background:#1a2a3a; border:1px solid #2a3a5a; color:#8fafec; }
+    .btn-primary { padding: 10px 16px; border-radius: 6px; border:1px solid #2a3a73; background:#19254b; color:#e8ecf1; cursor: pointer; font-size: 14px; width: 100%; }
+    .btn-primary:hover { background:#1f2f5a; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .personalization-status { font-size: 12px; color:#8ea2c8; margin-top: 8px; }
+  </style>
+  <script>
+    async function sendMessage(ev) {
+      ev.preventDefault();
+      const ta = document.querySelector('#input');
+      const msg = ta.value.trim();
+      if (!msg) return;
+      ta.value = '';
+      setLoading(true);
+      append('user', msg);
+      try {
+        let res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            session_id: 'local', 
+            message: msg, 
+            context: [],
+            user_id: currentUserId
+          })
+        });
+        let raw = await res.text();
+        let data;
+        try { data = JSON.parse(raw); } catch (e) {
+          append('bot', 'Service returned non-JSON. Showing raw text:');
+          append('bot', raw.slice(0, 600));
+          return;
+        }
+        append('bot', data.answer || JSON.stringify(data));
+        
+        // Display visualizations if available
+        if (data.visualizations) {
+          displayVisualizations(data.visualizations);
+        }
+        
+        if (data.steps) {
+          const used = data.steps.filter(s => s.tool).map(s => s.tool);
+          if (used.length) showMeta(used);
+        }
+      } catch (e) {
+        append('bot', 'Error: ' + (e && e.message ? e.message : e));
+      } finally {
+        setLoading(false);
+      }
+    }
+    function append(who, text) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (who === 'user' ? 'user' : 'bot');
+      div.textContent = text;
+      document.querySelector('#chat').appendChild(div);
+      div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    function showMeta(tools) {
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.innerHTML = 'Tools used: ' + tools.map(t => `<span class="pill">${t}</span>`).join('');
+      document.querySelector('#chat').appendChild(meta);
+      meta.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    function setLoading(v) {
+      const btn = document.querySelector('#send');
+      btn.disabled = v;
+      btn.textContent = v ? 'Sending…' : 'Send';
+    }
+    
+    function displayVisualizations(visualizations) {
+      const chatDiv = document.querySelector('#chat');
+      
+      for (const [chartType, chartData] of Object.entries(visualizations)) {
+        if (chartData && chartData.startsWith('data:image/png;base64,')) {
+          const imgDiv = document.createElement('div');
+          imgDiv.className = 'msg bot visualization';
+          imgDiv.style.textAlign = 'center';
+          imgDiv.style.padding = '20px';
+          
+          const img = document.createElement('img');
+          img.src = chartData;
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.borderRadius = '8px';
+          img.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+          
+          const label = document.createElement('div');
+          label.textContent = chartType.replace('_', ' ').toUpperCase();
+          label.style.fontSize = '12px';
+          label.style.color = '#8ea2c8';
+          label.style.marginBottom = '10px';
+          label.style.fontWeight = 'bold';
+          
+          imgDiv.appendChild(label);
+          imgDiv.appendChild(img);
+          chatDiv.appendChild(imgDiv);
+          imgDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }
+    }
+    // Personalization functions
+    let currentUserId = localStorage.getItem('apex_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
+    if (!localStorage.getItem('apex_user_id')) {
+      localStorage.setItem('apex_user_id', currentUserId);
+    }
+
+    function openPersonalizationModal() {
+      document.getElementById('personalizationModal').style.display = 'block';
+      checkPersonalizationStatus();
+    }
+
+    function closePersonalizationModal() {
+      document.getElementById('personalizationModal').style.display = 'none';
+    }
+
+    async function checkPersonalizationStatus() {
+      try {
+        const res = await fetch(`/personalization/status/${currentUserId}`);
+        const data = await res.json();
+        
+        const statusDiv = document.getElementById('personalizationStatus');
+        if (data.has_data) {
+          statusDiv.innerHTML = `
+            <div class="status-info">
+              <strong>✓ Data Uploaded</strong><br>
+              ${data.metadata.total_transactions} transactions<br>
+              Date range: ${data.metadata.date_range.start} to ${data.metadata.date_range.end}
+            </div>
+          `;
+          if (data.has_model) {
+            statusDiv.innerHTML += `
+              <div class="status-success" style="margin-top: 8px;">
+                <strong>✓ Personalized Model Trained</strong><br>
+                Your financial analysis is now personalized!
+              </div>
+            `;
+          } else {
+            statusDiv.innerHTML += `
+              <div class="status-info" style="margin-top: 8px;">
+                <strong>ℹ Model Not Trained</strong><br>
+                Click "Train Model" to create your personalized model.
+              </div>
+            `;
+          }
+        } else {
+          statusDiv.innerHTML = `
+            <div class="status-info">
+              No personal data uploaded yet. Upload a CSV file to get started.
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error('Error checking status:', e);
+      }
+    }
+
+    async function uploadCSV() {
+      const fileInput = document.getElementById('csvFile');
+      const file = fileInput.files[0];
+      const overwrite = document.getElementById('overwriteCheck').checked;
+      
+      if (!file) {
+        alert('Please select a CSV file');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', currentUserId);
+      formData.append('overwrite', overwrite);
+
+      const uploadBtn = document.getElementById('uploadBtn');
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Uploading...';
+
+      try {
+        const res = await fetch('/personalization/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        const statusDiv = document.getElementById('uploadStatus');
+        if (data.success) {
+          statusDiv.innerHTML = `
+            <div class="status-success">
+              <strong>✓ Upload Successful!</strong><br>
+              ${data.message}
+            </div>
+          `;
+          checkPersonalizationStatus();
+        } else {
+          statusDiv.innerHTML = `
+            <div class="status-error">
+              <strong>✗ Upload Failed</strong><br>
+              ${data.error || 'Unknown error'}
+            </div>
+          `;
+        }
+      } catch (e) {
+        document.getElementById('uploadStatus').innerHTML = `
+          <div class="status-error">
+            <strong>✗ Error</strong><br>
+            ${e.message}
+          </div>
+        `;
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload CSV';
+      }
+    }
+
+    async function trainModel() {
+      const trainBtn = document.getElementById('trainBtn');
+      trainBtn.disabled = true;
+      trainBtn.textContent = 'Training...';
+
+      try {
+        const formData = new FormData();
+        formData.append('user_id', currentUserId);
+        formData.append('retrain', true);
+
+        const res = await fetch('/personalization/train', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        const statusDiv = document.getElementById('trainStatus');
+        if (data.success) {
+          statusDiv.innerHTML = `
+            <div class="status-success">
+              <strong>✓ Training Successful!</strong><br>
+              Train Accuracy: ${(data.train_accuracy * 100).toFixed(1)}%<br>
+              Test Accuracy: ${(data.test_accuracy * 100).toFixed(1)}%<br>
+              Training samples: ${data.training_samples}
+            </div>
+          `;
+          checkPersonalizationStatus();
+        } else {
+          statusDiv.innerHTML = `
+            <div class="status-error">
+              <strong>✗ Training Failed</strong><br>
+              ${data.error || 'Unknown error'}
+            </div>
+          `;
+        }
+      } catch (e) {
+        document.getElementById('trainStatus').innerHTML = `
+          <div class="status-error">
+            <strong>✗ Error</strong><br>
+            ${e.message}
+          </div>
+        `;
+      } finally {
+        trainBtn.disabled = false;
+        trainBtn.textContent = 'Train Model';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelector('#form').addEventListener('submit', sendMessage);
+      document.getElementById('personalizationBtn').addEventListener('click', openPersonalizationModal);
+      document.querySelector('.close-btn').addEventListener('click', closePersonalizationModal);
+      document.getElementById('uploadBtn').addEventListener('click', uploadCSV);
+      document.getElementById('trainBtn').addEventListener('click', trainModel);
+      
+      // Close modal when clicking outside
+      window.addEventListener('click', (e) => {
+        const modal = document.getElementById('personalizationModal');
+        if (e.target === modal) {
+          closePersonalizationModal();
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Apex Advisor</h1>
+      <div class="header-actions">
+        <button class="header-btn" id="personalizationBtn">Personalize</button>
+      </div>
+    </header>
+    <div id="chat"></div>
+    <form id="form">
+      <textarea id="input" placeholder="Ask about spending, budget, or cash flow…" autofocus></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+  </div>
+
+  <!-- Personalization Modal -->
+  <div id="personalizationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Personalize Your Financial Analysis</h2>
+        <button class="close-btn">&times;</button>
+      </div>
+      
+      <div id="personalizationStatus"></div>
+      
+      <div class="form-group">
+        <label>Upload Your Financial Data (CSV)</label>
+        <input type="file" id="csvFile" accept=".csv" />
+        <div class="personalization-status">
+          Required columns: date, amount (optional: category)
+        </div>
+      </div>
+      
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="overwriteCheck" />
+        <label for="overwriteCheck">Overwrite existing data</label>
+      </div>
+      
+      <button class="btn-primary" id="uploadBtn">Upload CSV</button>
+      <div id="uploadStatus" style="margin-top: 12px;"></div>
+      
+      <hr style="border: none; border-top: 1px solid #1d2747; margin: 20px 0;" />
+      
+      <div class="form-group">
+        <label>Train Personalized Model</label>
+        <div class="personalization-status">
+          Train a machine learning model on your data for personalized financial health predictions.
+        </div>
+      </div>
+      
+      <button class="btn-primary" id="trainBtn">Train Model</button>
+      <div id="trainStatus" style="margin-top: 12px;"></div>
+    </div>
+  </div>
+</body>
+</html>
+
+

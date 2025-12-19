@@ -1,0 +1,9 @@
+data_path: data/transactions.csv
+agents:
+  expense_categorization:
+    training_data: data/categorization_training.csv
+  budget_monitor:
+    output_dir: state/outputs
+  cashflow_predictor:
+    output_dir: state/outputs
+    horizon: 6

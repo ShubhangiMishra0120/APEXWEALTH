@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Wealth - Personal Finance AI Advisor</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💰%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="AI-powered personal finance advisor for Indian users. Get insights, budgets, and financial advice." />
+  <meta name="theme-color" content="#1f2937" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Comprehensive console suppression for production
+    (function() {
+      if (typeof console === 'undefined') return;
+      
+      const originalWarn = console.warn;
+      const originalError = console.error;
+      const originalLog = console.log;
+      const originalInfo = console.info;
+      
+      const suppressPatterns = [
+        'React DevTools',
+        'cdn.tailwindcss.com should not be used in production',
+        'in-browser Babel transformer',
+        'Layout was forced before the page was fully loaded',
+        'Source map error',
+        'node.js:417:1',
+        'SES_UNCAUGHT_EXCEPTION',
+        'babel.min.js.map',
+        'NetworkError when attempting to fetch resource'
+      ];
+      
+      function shouldSuppress(message) {
+        if (typeof message !== 'string') return false;
+        return suppressPatterns.some(pattern => message.includes(pattern));
+      }
+      
+      console.warn = function(...args) {
+        const message = args.join(' ');
+        if (shouldSuppress(message)) return;
+        originalWarn.apply(console, args);
+      };
+      
+      console.error = function(...args) {
+        const message = args.join(' ');
+        if (shouldSuppress(message)) return;
+        originalError.apply(console, args);
+      };
+      
+      console.log = function(...args) {
+        const message = args.join(' ');
+        if (shouldSuppress(message)) return;
+        originalLog.apply(console, args);
+      };
+      
+      console.info = function(...args) {
+        const message = args.join(' ');
+        if (shouldSuppress(message)) return;
+        originalInfo.apply(console, args);
+      };
+    })();
+
+    // Debounce function for performance
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+  </script>
+  <style>
+    /* Critical CSS to prevent FOUC */
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; 
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+      color: #1f2937;
+    }
+    
+    #root {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Loading state */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    /* Prevent layout shift */
+    .hero-section {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+    }
+    .chat-container { height: calc(100vh - 200px); }
+    .chat-messages { height: calc(100% - 80px); }
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    .slide-up { animation: slideUp 0.6s ease-out; }
+    .bounce-in { animation: bounceIn 0.8s ease-out; }
+    .pulse { animation: pulse 2s infinite; }
+    .float { animation: float 3s ease-in-out infinite; }
+    .gradient-text { background: linear-gradient(45deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
+    .hover-lift { transition: all 0.3s ease; }
+    .hover-lift:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .typing-indicator { animation: typing 1.5s infinite; }
+    .particle { position: absolute; background: rgba(102, 126, 234, 0.1); border-radius: 50%; animation: particle-float 6s infinite linear; }
+    
+    @keyframes fadeIn { 
+      from { opacity: 0; transform: translateY(20px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+    @keyframes slideUp { 
+      from { opacity: 0; transform: translateY(50px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+    @keyframes bounceIn { 
+      0% { opacity: 0; transform: scale(0.3); } 
+      50% { opacity: 1; transform: scale(1.05); } 
+      70% { transform: scale(0.9); } 
+      100% { opacity: 1; transform: scale(1); } 
+    }
+    @keyframes pulse { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0.5; } 
+    }
+    @keyframes float { 
+      0%, 100% { transform: translateY(0px); } 
+      50% { transform: translateY(-20px); } 
+    }
+    @keyframes typing { 
+      0%, 60%, 100% { opacity: 0; } 
+      30% { opacity: 1; } 
+    }
+    @keyframes particle-float { 
+      0% { transform: translateY(100vh) rotate(0deg); opacity: 0; } 
+      10% { opacity: 1; } 
+      90% { opacity: 1; } 
+      100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } 
+    }
+    @keyframes shimmer { 
+      0% { background-position: -200% 0; } 
+      100% { background-position: 200% 0; } 
+    }
+    .shimmer { 
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); 
+      background-size: 200% 100%; 
+      animation: shimmer 2s infinite; 
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Simple icon components using Unicode symbols
+    const ArrowRight = () => '→';
+    const Check = () => '✓';
+    const Sparkles = () => '✨';
+    const Shield = () => '🛡️';
+    const Gauge = () => '📊';
+    const Brain = () => '🧠';
+    const Bot = () => '🤖';
+    const PieChart = () => '📈';
+    const BarChart3 = () => '📊';
+    const Play = () => '▶️';
+    const ChevronDown = () => '▼';
+    const IndianRupee = () => '₹';
+    const Mail = () => '✉️';
+    const MessageSquare = () => '💬';
+    const Zap = () => '⚡';
+    const Star = () => '⭐';
+    const Github = () => '🐙';
+    const Linkedin = () => '💼';
+    const User = () => '👤';
+    const Lock = () => '🔒';
+    const Eye = () => '👁️';
+    const EyeOff = () => '👁️‍🗨️';
+    const X = () => '✕';
+
+    // Optimized particle system with performance controls
+    function ParticleSystem() {
+      const [particles, setParticles] = useState([]);
+      const [isVisible, setIsVisible] = useState(false);
+
+      useEffect(() => {
+        // Only create particles if user prefers motion
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) return;
+
+        const createParticle = () => ({
+          id: Math.random(),
+          x: Math.random() * window.innerWidth,
+          size: Math.random() * 4 + 2,
+          duration: Math.random() * 3 + 4,
+          delay: Math.random() * 2
+        });
+
+        // Check if element is visible before starting animation
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting) {
+              setIsVisible(true);
+            }
+          },
+          { threshold: 0.1 }
+        );
+
+        const element = document.getElementById('hero-section');
+        if (element) observer.observe(element);
+
+        if (!isVisible) return;
+
+        const interval = setInterval(() => {
+          setParticles(prev => {
+            const newParticles = [...prev.slice(-8), createParticle()]; // Reduced from 10 to 8
+            return newParticles;
+          });
+        }, 3000); // Increased interval from 2000 to 3000
+
+        return () => {
+          clearInterval(interval);
+          observer.disconnect();
+        };
+      }, [isVisible]);
+
+      if (!isVisible) return null;
+
+      return React.createElement('div', {
+        className: "fixed inset-0 pointer-events-none overflow-hidden"
+      }, particles.map(particle => React.createElement('div', {
+        key: particle.id,
+        className: "particle",
+        style: {
+          left: `${particle.x}px`,
+          width: `${particle.size}px`,
+          height: `${particle.size}px`,
+          animationDuration: `${particle.duration}s`,
+          animationDelay: `${particle.delay}s`
+        }
+      })));
+    }
+
+    // Optimized animated counter hook
+    function useAnimatedCounter(target, duration = 2000) {
+      const [count, setCount] = useState(0);
+      const [isVisible, setIsVisible] = useState(false);
+
+      useEffect(() => {
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting) {
+              setIsVisible(true);
+            }
+          },
+          { threshold: 0.1 }
+        );
+
+        const element = document.getElementById('counter');
+        if (element) observer.observe(element);
+
+        return () => observer.disconnect();
+      }, []);
+
+      useEffect(() => {
+        if (!isVisible) return;
+
+        // Use requestAnimationFrame for smoother animation
+        let start = 0;
+        const increment = target / (duration / 16);
+        
+        const animate = () => {
+          start += increment;
+          if (start >= target) {
+            setCount(target);
+          } else {
+            setCount(Math.floor(start));
+            requestAnimationFrame(animate);
+          }
+        };
+        
+        requestAnimationFrame(animate);
+      }, [isVisible, target, duration]);
+
+      return count;
+    }
+
+    // Chat API functions with better error handling
+    async function sendMessage(message, context = []) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+        
+        // Slim context: only last few role/content pairs, no images/base64
+        const slimContext = (context || []).slice(-5).map(m => ({
+          role: m.role || 'user',
+          content: typeof m.content === 'string' ? m.content.slice(0, 1000) : ''
+        }));
+
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: 'main', message, context: slimContext }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          if (response.status === 422) {
+            return { answer: 'Invalid request format. Please try again.', status: 'error', type: 'error' };
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          return { answer: 'Request timed out. The AI is taking longer than expected. Please try again.', status: 'error', type: 'error' };
+        }
+        if (error.message.includes('Failed to fetch')) {
+          return { answer: 'Network error. Please check your connection and try again.', status: 'error', type: 'error' };
+        }
+        return { answer: 'Sorry, I encountered an error. Please try again.', status: 'error', type: 'error' };
+      }
+    }
+
+    function displayVisualizations(visualizations) {
+      // This function is no longer needed as visualizations are handled in React
+      // The visualizations are now displayed directly in the React chat interface
+      console.log('Visualizations received:', Object.keys(visualizations || {}));
+    }
+
+    function Badge({ children }) {
+      return React.createElement('span', {
+        className: "inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-700 shadow-sm"
+      }, [
+        React.createElement(Sparkles, { key: 'icon', className: "w-3.5 h-3.5" }),
+        children
+      ]);
+    }
+
+    // Login Modal Component
+    function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [isLoading, setIsLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        // Simulate login - in real app, this would call your auth API
+        setTimeout(() => {
+          setIsLoading(false);
+          onClose();
+          // Set user as logged in
+          window.userLoggedIn = true;
+          window.userEmail = email;
+          window.location.reload();
+        }, 1000);
+      };
+
+      if (!isOpen) return null;
+
+      return React.createElement('div', {
+        className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      }, React.createElement('div', {
+        className: "bg-white rounded-2xl p-8 w-full max-w-md mx-4"
+      }, [
+        React.createElement('div', { key: 'header', className: "flex justify-between items-center mb-6" }, [
+          React.createElement('h2', { key: 'title', className: "text-2xl font-bold text-neutral-900" }, "Welcome back"),
+          React.createElement('button', { key: 'close', onClick: onClose, className: "text-neutral-400 hover:text-neutral-600" }, React.createElement(X, { className: "w-6 h-6" }))
+        ]),
+        React.createElement('form', { key: 'form', onSubmit: handleSubmit }, [
+          React.createElement('div', { key: 'email', className: "mb-4" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Email"),
+            React.createElement('input', {
+              key: 'input',
+              type: 'email',
+              value: email,
+              onChange: (e) => setEmail(e.target.value),
+              required: true,
+              className: "w-full rounded-xl border border-neutral-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+              placeholder: "Enter your email"
+            })
+          ]),
+          React.createElement('div', { key: 'password', className: "mb-6" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Password"),
+            React.createElement('div', { key: 'wrapper', className: "relative" }, [
+              React.createElement('input', {
+                key: 'input',
+                type: showPassword ? 'text' : 'password',
+                value: password,
+                onChange: (e) => setPassword(e.target.value),
+                required: true,
+                className: "w-full rounded-xl border border-neutral-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+                placeholder: "Enter your password"
+              }),
+              React.createElement('button', {
+                key: 'toggle',
+                type: 'button',
+                onClick: () => setShowPassword(!showPassword),
+                className: "absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+              }, showPassword ? React.createElement(EyeOff, { className: "w-5 h-5" }) : React.createElement(Eye, { className: "w-5 h-5" }))
+            ])
+          ]),
+          React.createElement('button', {
+            key: 'submit',
+            type: 'submit',
+            disabled: isLoading,
+            className: `w-full rounded-xl bg-neutral-900 text-white py-3 font-semibold hover:bg-black transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`
+          }, isLoading ? 'Signing in...' : 'Sign in')
+        ]),
+        React.createElement('div', { key: 'footer', className: "mt-6 text-center" }, [
+          React.createElement('span', { key: 'text', className: "text-neutral-600" }, "Don't have an account? "),
+          React.createElement('button', { key: 'link', onClick: onSwitchToSignup, className: "text-neutral-900 font-semibold hover:underline" }, "Sign up")
+        ])
+      ]));
+    }
+
+    // Signup Modal Component
+    function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
+      const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+      const [showPassword, setShowPassword] = useState(false);
+      const [isLoading, setIsLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (formData.password !== formData.confirmPassword) {
+          alert('Passwords do not match');
+          return;
+        }
+        setIsLoading(true);
+        // Simulate signup - in real app, this would call your auth API
+        setTimeout(() => {
+          setIsLoading(false);
+          onClose();
+          // Set user as logged in
+          window.userLoggedIn = true;
+          window.userEmail = formData.email;
+          window.location.reload();
+        }, 1000);
+      };
+
+      if (!isOpen) return null;
+
+      return React.createElement('div', {
+        className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      }, React.createElement('div', {
+        className: "bg-white rounded-2xl p-8 w-full max-w-md mx-4"
+      }, [
+        React.createElement('div', { key: 'header', className: "flex justify-between items-center mb-6" }, [
+          React.createElement('h2', { key: 'title', className: "text-2xl font-bold text-neutral-900" }, "Create account"),
+          React.createElement('button', { key: 'close', onClick: onClose, className: "text-neutral-400 hover:text-neutral-600" }, React.createElement(X, { className: "w-6 h-6" }))
+        ]),
+        React.createElement('form', { key: 'form', onSubmit: handleSubmit }, [
+          React.createElement('div', { key: 'name', className: "mb-4" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Full Name"),
+            React.createElement('input', {
+              key: 'input',
+              type: 'text',
+              value: formData.name,
+              onChange: (e) => setFormData({...formData, name: e.target.value}),
+              required: true,
+              className: "w-full rounded-xl border border-neutral-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+              placeholder: "Enter your full name"
+            })
+          ]),
+          React.createElement('div', { key: 'email', className: "mb-4" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Email"),
+            React.createElement('input', {
+              key: 'input',
+              type: 'email',
+              value: formData.email,
+              onChange: (e) => setFormData({...formData, email: e.target.value}),
+              required: true,
+              className: "w-full rounded-xl border border-neutral-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+              placeholder: "Enter your email"
+            })
+          ]),
+          React.createElement('div', { key: 'password', className: "mb-4" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Password"),
+            React.createElement('div', { key: 'wrapper', className: "relative" }, [
+              React.createElement('input', {
+                key: 'input',
+                type: showPassword ? 'text' : 'password',
+                value: formData.password,
+                onChange: (e) => setFormData({...formData, password: e.target.value}),
+                required: true,
+                className: "w-full rounded-xl border border-neutral-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+                placeholder: "Create a password"
+              }),
+              React.createElement('button', {
+                key: 'toggle',
+                type: 'button',
+                onClick: () => setShowPassword(!showPassword),
+                className: "absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+              }, showPassword ? React.createElement(EyeOff, { className: "w-5 h-5" }) : React.createElement(Eye, { className: "w-5 h-5" }))
+            ])
+          ]),
+          React.createElement('div', { key: 'confirm', className: "mb-6" }, [
+            React.createElement('label', { key: 'label', className: "block text-sm font-medium text-neutral-700 mb-2" }, "Confirm Password"),
+            React.createElement('input', {
+              key: 'input',
+              type: 'password',
+              value: formData.confirmPassword,
+              onChange: (e) => setFormData({...formData, confirmPassword: e.target.value}),
+              required: true,
+              className: "w-full rounded-xl border border-neutral-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900",
+              placeholder: "Confirm your password"
+            })
+          ]),
+          React.createElement('button', {
+            key: 'submit',
+            type: 'submit',
+            disabled: isLoading,
+            className: `w-full rounded-xl bg-neutral-900 text-white py-3 font-semibold hover:bg-black transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`
+          }, isLoading ? 'Creating account...' : 'Create account')
+        ]),
+        React.createElement('div', { key: 'footer', className: "mt-6 text-center" }, [
+          React.createElement('span', { key: 'text', className: "text-neutral-600" }, "Already have an account? "),
+          React.createElement('button', { key: 'link', onClick: onSwitchToLogin, className: "text-neutral-900 font-semibold hover:underline" }, "Sign in")
+        ])
+      ]));
+    }
+
+    // Chat Interface Component
+    function ChatInterface() {
+      const [messages, setMessages] = useState([
+        { role: 'bot', content: 'Hi! I\'m Apex, your personal finance AI advisor. I can help you analyze your spending, create budgets, and answer questions about your financial data. What would you like to know?' }
+      ]);
+      const [inputMessage, setInputMessage] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+      const [isTyping, setIsTyping] = useState(false);
+
+      const handleSend = async (e) => {
+        e.preventDefault();
+        if (!inputMessage.trim() || isLoading) return;
+
+        const userMessage = { role: 'user', content: inputMessage.trim() };
+        setMessages(prev => [...prev, userMessage]);
+        setInputMessage('');
+        setIsLoading(true);
+        setIsTyping(true);
+
+        try {
+          const response = await sendMessage(inputMessage, messages.slice(-5));
+          
+          // Simulate typing delay for better UX
+          await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+          
+          const botMessage = { 
+            role: 'bot', 
+            content: response.answer || 'Sorry, I couldn\'t process that request.',
+            visualizations: response.visualizations
+          };
+          
+          setMessages(prev => [...prev, botMessage]);
+          setIsTyping(false);
+          
+          // Scroll to bottom after adding message
+          setTimeout(() => {
+            const chatContainer = document.querySelector('.chat-messages');
+            if (chatContainer) {
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+          }, 100);
+        } catch (error) {
+          const errorMessage = { role: 'bot', content: 'Sorry, I encountered an error. Please try again.' };
+          setMessages(prev => [...prev, errorMessage]);
+          setIsTyping(false);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return React.createElement('div', {
+        className: "h-full flex flex-col bg-white rounded-2xl border border-neutral-200 shadow-xl"
+      }, [
+        React.createElement('div', { key: 'header', className: "flex items-center gap-3 p-4 border-b border-neutral-200" }, [
+          React.createElement('div', { key: 'avatar', className: "w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold" }, "A"),
+          React.createElement('div', { key: 'info' }, [
+            React.createElement('h3', { key: 'name', className: "font-semibold text-neutral-900" }, "Apex AI Advisor"),
+            React.createElement('p', { key: 'status', className: "text-sm text-green-600" }, "Online")
+          ])
+        ]),
+        React.createElement('div', { key: 'messages', className: "flex-1 overflow-y-auto p-4 space-y-4" }, [
+          ...messages.map((msg, i) => React.createElement('div', {
+            key: i,
+            className: `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} fade-in`
+          }, React.createElement('div', {
+            className: `max-w-[80%] rounded-2xl px-4 py-3 hover-lift ${
+              msg.role === 'user' 
+                ? 'bg-gradient-to-r from-neutral-900 to-neutral-700 text-white' 
+                : 'bg-gradient-to-r from-neutral-100 to-neutral-50 text-neutral-900'
+            }`
+          }, [
+            React.createElement('div', { key: 'content', className: "whitespace-pre-wrap" }, msg.content),
+            msg.visualizations && React.createElement('div', { key: 'viz', className: "mt-2" }, 
+              Object.entries(msg.visualizations).map(([chartType, chartData], idx) => 
+                chartData && chartData.startsWith('data:image/png;base64,') ? 
+                  React.createElement('div', { key: idx, className: "mb-4 text-center" }, [
+                    React.createElement('div', { key: 'label', className: "text-xs text-neutral-500 mb-2 font-medium" }, 
+                      chartType.replace(/_/g, ' ').toUpperCase()
+                    ),
+                    React.createElement('img', { 
+                      key: 'img',
+                      src: chartData, 
+                      className: "max-w-full h-auto rounded-lg shadow-md mx-auto",
+                      style: { maxWidth: '100%', height: 'auto' }
+                    })
+                  ]) : null
+              ).filter(Boolean)
+            )
+          ]))),
+          isTyping && React.createElement('div', {
+            key: 'typing',
+            className: "flex justify-start fade-in"
+          }, React.createElement('div', {
+            className: "max-w-[80%] rounded-2xl px-4 py-3 bg-gradient-to-r from-neutral-100 to-neutral-50 text-neutral-900"
+          }, React.createElement('div', {
+            className: "flex items-center gap-1"
+          }, [
+            React.createElement('span', { key: 'text' }, "Apex is typing"),
+            React.createElement('div', { key: 'dots', className: "flex gap-1 ml-2" }, [
+              React.createElement('div', { key: 'dot1', className: "w-2 h-2 bg-neutral-400 rounded-full typing-indicator" }),
+              React.createElement('div', { key: 'dot2', className: "w-2 h-2 bg-neutral-400 rounded-full typing-indicator", style: { animationDelay: '0.2s' } }),
+              React.createElement('div', { key: 'dot3', className: "w-2 h-2 bg-neutral-400 rounded-full typing-indicator", style: { animationDelay: '0.4s' } })
+            ])
+          ])))
+        ]),
+        React.createElement('form', { key: 'input', onSubmit: handleSend, className: "p-4 border-t border-neutral-200" }, [
+          React.createElement('div', { key: 'wrapper', className: "flex gap-2" }, [
+            React.createElement('input', {
+              key: 'input',
+              type: 'text',
+              value: inputMessage,
+              onChange: (e) => setInputMessage(e.target.value),
+              placeholder: "Ask about your finances...",
+              disabled: isLoading,
+              className: "flex-1 rounded-xl border border-neutral-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900 disabled:opacity-50"
+            }),
+            React.createElement('button', {
+              key: 'send',
+              type: 'submit',
+              disabled: !inputMessage.trim() || isLoading,
+              className: "rounded-xl bg-neutral-900 text-white px-6 py-3 hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            }, isLoading ? '...' : React.createElement(MessageSquare, { className: "w-5 h-5" }))
+          ])
+        ])
+      ]);
+    }
+
+    // Navigation Component
+    function Nav({ onLogin, onSignup, userLoggedIn, userEmail }) {
+      return React.createElement('div', {
+        className: "fixed inset-x-0 top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-neutral-200"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, React.createElement('div', {
+        className: "h-16 flex items-center justify-between"
+      }, [
+        React.createElement('div', { key: 'logo', className: "flex items-center gap-2" }, [
+          React.createElement('div', { key: 'icon', className: "w-8 h-8 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white grid place-items-center font-bold float" }, "A"),
+          React.createElement('span', { key: 'text', className: "font-semibold tracking-tight" }, "Apex Wealth")
+        ]),
+        React.createElement('div', { key: 'nav', className: "hidden md:flex items-center gap-8 text-sm text-neutral-700" }, [
+          React.createElement('a', { key: 'features', href: "#features", className: "hover:text-black transition-colors" }, "Features"),
+          React.createElement('a', { key: 'how', href: "#how", className: "hover:text-black transition-colors" }, "How it works"),
+          React.createElement('a', { key: 'pricing', href: "#pricing", className: "hover:text-black transition-colors" }, "Pricing")
+        ]),
+        React.createElement('div', { key: 'cta', className: "flex items-center gap-3" }, 
+          userLoggedIn ? [
+            React.createElement('span', { key: 'user', className: "text-sm text-neutral-600" }, `Welcome, ${userEmail}`),
+            React.createElement('button', { key: 'logout', onClick: () => { window.userLoggedIn = false; window.userEmail = null; window.location.reload(); }, className: "text-sm text-neutral-600 hover:text-black transition-colors" }, "Logout")
+          ] : [
+            React.createElement('button', { key: 'login', onClick: onLogin, className: "text-sm font-medium text-neutral-700 hover:text-black transition-colors" }, "Sign in"),
+            React.createElement('button', { key: 'signup', onClick: onSignup, className: "group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neutral-900 to-neutral-700 px-4 py-2 text-white text-sm font-semibold shadow-sm hover:shadow-lg hover:scale-105 transition-all duration-300" }, [
+              "Get started ",
+              React.createElement(ArrowRight, { key: 'arrow', className: "w-4 h-4 transition-transform group-hover:translate-x-0.5" })
+            ])
+          ]
+        )
+      ])));
+    }
+
+    // Hero Section
+    function Hero() {
+      const usersCount = useAnimatedCounter(12000);
+      const savingsCount = useAnimatedCounter(58);
+      const accuracyCount = useAnimatedCounter(96);
+
+      return React.createElement('section', {
+        id: "hero-section",
+        className: "pt-28 md:pt-32 bg-gradient-to-br from-white via-blue-50 to-purple-50 relative overflow-hidden"
+      }, [
+        React.createElement(ParticleSystem, { key: 'particles' }),
+        React.createElement('div', {
+          key: 'content',
+          className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10"
+        }, React.createElement('div', {
+          className: "grid lg:grid-cols-2 gap-10 items-center"
+        }, [
+          React.createElement('div', { key: 'content' }, [
+            React.createElement('div', { key: 'badge', className: "mb-4 slide-up" }, React.createElement(Badge, {}, "Personal Finance AI, built for India")),
+            React.createElement('h1', { key: 'title', className: "text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] text-neutral-900 slide-up" }, [
+              "Your money, finally explained by an ",
+              React.createElement('span', { key: 'highlight', className: "gradient-text" }, "AI advisor")
+            ]),
+            React.createElement('p', { key: 'desc', className: "mt-4 text-lg text-neutral-700 leading-relaxed slide-up" }, 
+              "Connect accounts, auto‑categorize spends, see budgets in real time, and get clear actions you can take today. No spreadsheets required."),
+            React.createElement('div', { key: 'buttons', className: "mt-6 flex flex-col sm:flex-row gap-3 slide-up" }, [
+              React.createElement('button', { key: 'start', onClick: () => document.getElementById('chat-section').scrollIntoView({ behavior: 'smooth' }), className: "group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neutral-900 to-neutral-700 px-5 py-3 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300" }, [
+                "Start chatting ",
+                React.createElement(ArrowRight, { key: 'arrow', className: "w-4 h-4 group-hover:translate-x-1 transition-transform" })
+              ]),
+              React.createElement('button', { key: 'demo', onClick: () => document.getElementById('chat-section').scrollIntoView({ behavior: 'smooth' }), className: "group inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-white px-5 py-3 text-neutral-900 font-semibold hover:border-neutral-400 hover:scale-105 transition-all duration-300" }, [
+                React.createElement(Play, { key: 'play', className: "w-4 h-4 group-hover:scale-110 transition-transform" }),
+                " Try demo"
+              ])
+            ]),
+            React.createElement('div', { key: 'stats', className: "mt-8 grid grid-cols-3 gap-4 max-w-md slide-up" }, [
+              React.createElement('div', { key: 'users', className: "rounded-xl border border-neutral-200 bg-white/80 backdrop-blur-sm p-4 shadow-sm hover-lift" }, [
+                React.createElement('div', { key: 'value', className: "text-2xl font-bold tracking-tight gradient-text" }, `${usersCount.toLocaleString()}+`),
+                React.createElement('div', { key: 'label', className: "text-xs text-neutral-600 mt-1" }, "Active Users")
+              ]),
+              React.createElement('div', { key: 'savings', className: "rounded-xl border border-neutral-200 bg-white/80 backdrop-blur-sm p-4 shadow-sm hover-lift" }, [
+                React.createElement('div', { key: 'value', className: "text-2xl font-bold tracking-tight gradient-text" }, `~${savingsCount}%`),
+                React.createElement('div', { key: 'label', className: "text-xs text-neutral-600 mt-1" }, "Avg. Savings")
+              ]),
+              React.createElement('div', { key: 'accuracy', className: "rounded-xl border border-neutral-200 bg-white/80 backdrop-blur-sm p-4 shadow-sm hover-lift" }, [
+                React.createElement('div', { key: 'value', className: "text-2xl font-bold tracking-tight gradient-text" }, `${accuracyCount}%`),
+                React.createElement('div', { key: 'label', className: "text-xs text-neutral-600 mt-1" }, "Accuracy")
+              ])
+            ])
+          ]),
+          React.createElement('div', { key: 'demo', className: "hidden lg:block bounce-in" }, React.createElement(ChatInterface))
+        ]))
+      ]);
+    }
+
+    // Features Section
+    function Features() {
+      const features = [
+        {
+          icon: React.createElement(Brain, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "AI‑Powered Insights",
+          text: "Get personalized financial advice based on your actual spending patterns and goals.",
+        },
+        {
+          icon: React.createElement(PieChart, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "Smart Categorization",
+          text: "Automatically categorize your transactions with intelligent merchant recognition.",
+        },
+        {
+          icon: React.createElement(BarChart3, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "Real‑Time Budgets",
+          text: "Track your spending in real-time with smart alerts and recommendations.",
+        },
+        {
+          icon: React.createElement(Shield, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "Bank‑Grade Security",
+          text: "Your financial data is encrypted and protected with enterprise-grade security.",
+        },
+        {
+          icon: React.createElement(Gauge, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "Cash‑Flow Forecasting",
+          text: "Predict future expenses and income to stay ahead of your finances.",
+        },
+        {
+          icon: React.createElement(Bot, { className: "w-6 h-6", "aria-hidden": true }),
+          title: "24/7 AI Assistant",
+          text: "Get instant answers to your financial questions anytime, anywhere.",
+        },
+      ];
+
+      return React.createElement('section', {
+        id: "features",
+        className: "py-16 md:py-20 bg-white"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, [
+        React.createElement('div', { key: 'header', className: "max-w-2xl" }, [
+          React.createElement('h2', { key: 'title', className: "text-3xl md:text-4xl font-bold tracking-tight text-neutral-900" }, "Everything you need to feel in control"),
+          React.createElement('p', { key: 'desc', className: "mt-3 text-neutral-700" }, "From AI-powered insights to real-time budgeting, Apex Wealth keeps your finances organized and your goals achievable.")
+        ]),
+        React.createElement('div', { key: 'grid', className: "mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6" }, 
+          features.map((f, i) => React.createElement('div', {
+            key: i,
+            className: "rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover-lift group"
+          }, [
+            React.createElement('div', { key: 'icon', className: "w-10 h-10 rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 grid place-items-center text-neutral-900 mb-3 group-hover:scale-110 transition-transform" }, f.icon),
+            React.createElement('div', { key: 'title', className: "font-semibold text-neutral-900" }, f.title),
+            React.createElement('p', { key: 'text', className: "mt-2 text-sm text-neutral-700 leading-relaxed" }, f.text)
+          ]))
+        )
+      ]));
+    }
+
+    // How It Works Section
+    function HowItWorks() {
+      const steps = [
+        { icon: React.createElement(User, { className: "w-5 h-5" }), title: "Sign Up", text: "Create your account and connect your financial data securely." },
+        { icon: React.createElement(Brain, { className: "w-5 h-5" }), title: "AI Analysis", text: "Our AI analyzes your spending patterns and categorizes transactions automatically." },
+        { icon: React.createElement(MessageSquare, { className: "w-5 h-5" }), title: "Chat & Learn", text: "Ask questions and get personalized financial advice through our AI assistant." },
+      ];
+      
+      return React.createElement('section', {
+        id: "how",
+        className: "py-16 md:py-20 bg-gradient-to-br from-neutral-50 to-blue-50"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, [
+        React.createElement('div', { key: 'header', className: "text-center" }, [
+          React.createElement('h2', { key: 'title', className: "text-3xl md:text-4xl font-bold tracking-tight text-neutral-900" }, "How it works"),
+          React.createElement('p', { key: 'desc', className: "mt-3 text-neutral-700" }, "Three simple steps to financial clarity.")
+        ]),
+        React.createElement('div', { key: 'steps', className: "mt-10 grid md:grid-cols-3 gap-6" }, 
+          steps.map((s, i) => React.createElement('div', {
+            key: i,
+            className: "rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm hover-lift group"
+          }, [
+            React.createElement('div', { key: 'icon', className: "w-10 h-10 rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 grid place-items-center text-neutral-900 mb-3 group-hover:scale-110 transition-transform" }, s.icon),
+            React.createElement('div', { key: 'title', className: "font-semibold text-neutral-900" }, s.title),
+            React.createElement('p', { key: 'text', className: "mt-2 text-sm text-neutral-700" }, s.text)
+          ]))
+        )
+      ]));
+    }
+
+    // Pricing Section
+    function Pricing() {
+      const plans = [
+        { name: "Free", price: "0", period: "forever", features: ["Basic AI chat", "Transaction analysis", "Simple budgets", "Email support"] },
+        { name: "Pro", price: "299", period: "month", features: ["Advanced AI insights", "Custom categories", "Detailed reports", "Priority support", "Data export"] },
+        { name: "Business", price: "599", period: "month", features: ["Everything in Pro", "Team collaboration", "Advanced analytics", "API access", "Dedicated support"] },
+      ];
+      
+      return React.createElement('section', {
+        id: "pricing",
+        className: "py-16 md:py-20 bg-white"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, [
+        React.createElement('div', { key: 'header', className: "text-center mb-12" }, [
+          React.createElement('h2', { key: 'title', className: "text-3xl md:text-4xl font-bold tracking-tight text-neutral-900" }, "Simple pricing"),
+          React.createElement('p', { key: 'desc', className: "mt-3 text-neutral-700" }, "Choose the plan that works for you")
+        ]),
+        React.createElement('div', { key: 'plans', className: "grid md:grid-cols-3 gap-6" }, 
+          plans.map((plan, i) => React.createElement('div', {
+            key: i,
+            className: `rounded-2xl border p-6 hover-lift transition-all duration-300 ${
+              plan.name === 'Pro' 
+                ? 'border-blue-500 shadow-lg bg-gradient-to-br from-blue-50 to-purple-50' 
+                : 'border-neutral-200 hover:border-neutral-300'
+            }`
+          }, [
+            React.createElement('div', { key: 'header', className: "mb-4" }, [
+              React.createElement('h3', { key: 'name', className: "text-lg font-semibold text-neutral-900" }, plan.name),
+              React.createElement('div', { key: 'price', className: "mt-2 flex items-baseline" }, [
+                React.createElement(IndianRupee, { key: 'currency', className: "w-5 h-5" }),
+                React.createElement('span', { key: 'amount', className: "text-3xl font-bold gradient-text" }, plan.price),
+                React.createElement('span', { key: 'period', className: "text-neutral-500 ml-1" }, `/${plan.period}`)
+              ])
+            ]),
+            React.createElement('ul', { key: 'features', className: "space-y-2 mb-6" }, 
+              plan.features.map((feature, j) => React.createElement('li', {
+                key: j,
+                className: "flex items-center gap-2 text-sm text-neutral-700"
+              }, [
+                React.createElement(Check, { key: 'check', className: "w-4 h-4 text-green-500" }),
+                feature
+              ]))
+            ),
+            React.createElement('button', {
+              key: 'cta',
+              className: `w-full rounded-xl py-3 font-semibold transition-all duration-300 ${
+                plan.name === 'Pro' 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 hover:scale-105' 
+                  : 'border border-neutral-300 text-neutral-900 hover:border-neutral-400 hover:bg-neutral-50'
+              }`
+            }, plan.name === 'Free' ? 'Get started' : 'Choose plan')
+          ]))
+        )
+      ]));
+    }
+
+    // Chat Section
+    function ChatSection() {
+      return React.createElement('section', {
+        id: "chat-section",
+        className: "py-16 md:py-20 bg-gradient-to-br from-neutral-50 to-blue-50"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, [
+        React.createElement('div', { key: 'header', className: "text-center mb-12" }, [
+          React.createElement('h2', { key: 'title', className: "text-3xl md:text-4xl font-bold tracking-tight text-neutral-900" }, "Try Apex AI Assistant"),
+          React.createElement('p', { key: 'desc', className: "mt-3 text-neutral-700" }, "Ask questions about your finances and get instant, personalized insights")
+        ]),
+        React.createElement('div', { key: 'chat', className: "max-w-4xl mx-auto" }, React.createElement(ChatInterface))
+      ]));
+    }
+
+    // Footer
+    function Footer() {
+      return React.createElement('footer', {
+        className: "py-10 bg-white border-t border-neutral-200"
+      }, React.createElement('div', {
+        className: "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+      }, React.createElement('div', {
+        className: "flex flex-col md:flex-row items-center justify-between gap-4"
+      }, [
+        React.createElement('div', { key: 'logo', className: "flex items-center gap-2 text-neutral-700" }, [
+          React.createElement('div', { key: 'icon', className: "w-8 h-8 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white grid place-items-center font-bold" }, "A"),
+          React.createElement('span', { key: 'text', className: "text-sm" }, `© ${new Date().getFullYear()} Apex Wealth`)
+        ]),
+        React.createElement('div', { key: 'links', className: "flex items-center gap-4 text-neutral-700" }, [
+          React.createElement('a', { key: 'privacy', className: "hover:text-black text-sm transition-colors", href: "#" }, "Privacy"),
+          React.createElement('a', { key: 'terms', className: "hover:text-black text-sm transition-colors", href: "#" }, "Terms"),
+          React.createElement('a', { key: 'github', className: "hover:text-black text-sm inline-flex items-center gap-1 transition-colors", href: "#" }, [
+            React.createElement(Github, { key: 'icon', className: "w-4 h-4" }),
+            " GitHub"
+          ]),
+          React.createElement('a', { key: 'linkedin', className: "hover:text-black text-sm inline-flex items-center gap-1 transition-colors", href: "#" }, [
+            React.createElement(Linkedin, { key: 'icon', className: "w-4 h-4" }),
+            " LinkedIn"
+          ])
+        ])
+      ])));
+    }
+
+    // Main Landing Page Component
+    function LandingPage() {
+      const [showLogin, setShowLogin] = useState(false);
+      const [showSignup, setShowSignup] = useState(false);
+      const [userLoggedIn, setUserLoggedIn] = useState(window.userLoggedIn || false);
+      const [userEmail, setUserEmail] = useState(window.userEmail || null);
+
+      useEffect(() => {
+        // Check if user is logged in on page load
+        setUserLoggedIn(window.userLoggedIn || false);
+        setUserEmail(window.userEmail || null);
+      }, []);
+
+      const handleLogin = () => {
+        setShowLogin(true);
+        setShowSignup(false);
+      };
+
+      const handleSignup = () => {
+        setShowSignup(true);
+        setShowLogin(false);
+      };
+
+      const handleCloseModals = () => {
+        setShowLogin(false);
+        setShowSignup(false);
+      };
+
+      const handleSwitchToSignup = () => {
+        setShowLogin(false);
+        setShowSignup(true);
+      };
+
+      const handleSwitchToLogin = () => {
+        setShowSignup(false);
+        setShowLogin(true);
+      };
+
+      return React.createElement('div', {
+        className: "min-h-dvh bg-white text-neutral-900 selection:bg-neutral-900 selection:text-white"
+      }, [
+        React.createElement(Nav, { 
+          key: 'nav', 
+          onLogin: handleLogin, 
+          onSignup: handleSignup, 
+          userLoggedIn, 
+          userEmail 
+        }),
+        React.createElement('main', { key: 'main' }, [
+          React.createElement(Hero, { key: 'hero' }),
+          React.createElement(Features, { key: 'features' }),
+          React.createElement(HowItWorks, { key: 'how' }),
+          React.createElement(Pricing, { key: 'pricing' }),
+          React.createElement(ChatSection, { key: 'chat' })
+        ]),
+        React.createElement(Footer, { key: 'footer' }),
+        React.createElement(LoginModal, { 
+          key: 'login', 
+          isOpen: showLogin, 
+          onClose: handleCloseModals, 
+          onSwitchToSignup: handleSwitchToSignup 
+        }),
+        React.createElement(SignupModal, { 
+          key: 'signup', 
+          isOpen: showSignup, 
+          onClose: handleCloseModals, 
+          onSwitchToLogin: handleSwitchToLogin 
+        })
+      ]);
+    }
+
+    // Loading component
+    function LoadingScreen() {
+      return React.createElement('div', {
+        className: "loading"
+      }, [
+        React.createElement('div', { key: 'content' }, [
+          React.createElement('div', { key: 'spinner', className: "animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4" }),
+          React.createElement('div', { key: 'text' }, "Loading Apex Wealth...")
+        ])
+      ]);
+    }
+
+    // Main App component with loading state
+    function App() {
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        // Simulate loading time for better UX
+        const timer = setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+      }, []);
+
+      if (isLoading) {
+        return React.createElement(LoadingScreen);
+      }
+
+      return React.createElement(LandingPage);
+    }
+
+    // Render the app
+    ReactDOM.render(React.createElement(App), document.getElementById('root'));
+  </script>
+</body>
+</html>
