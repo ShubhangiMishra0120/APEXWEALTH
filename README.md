@@ -30,3 +30,6 @@ venv\Scripts\python.exe -m uvicorn --app-dir apex-wealth-agents app.main:app --r
 venv\Scripts\python.exe apex-wealth-agents\run_cli.py
 ```
 Type your question (e.g., "What’s my budget status?") and the orchestrator will plan tool calls.
+
+4. Working Video of Project on Drive Link
+https://drive.google.com/drive/u/0/folders/13fT-HeZc213xbvkQP9wCKKNRDCCiPcd9
